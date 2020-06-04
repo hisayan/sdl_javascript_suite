@@ -149,28 +149,53 @@
                     const screenManager = this._sdlManager.getScreenManager();
                     await screenManager.setSoftButtonObjects(softButtonObjects);
 
-                    await this._sleep(2000);
-                    softButtonObjects[0].transitionToNextState();
-                    await this._sleep(2000);
-                    softButtonObjects[0].transitionToNextState();
-                    await this._sleep(2000);
+                    // 速度の変化を取得するリスナーを定義
+                    this._sdlManager.addRpcListener(SDL.rpc.enums.FunctionID.OnVehicleData, (onVehicleDataNotification) => {
+                        if (onVehicleDataNotification.getSpeed() !== null) {
+                            console.log(`Speed was updated to: ${onVehicleDataNotification.getSpeed()}`);
+                            const speed = Math.floor(onVehicleDataNotification.getSpeed());
+                            // 速度を 表示
+                            screenManager.setTextField3(`只今の時速は ${speed} キロです`);
+                            // 速度を SDLで音声再生
+                            const chunk = new SDL.rpc.structs.TTSChunk().setText(`只今の時速は ${speed} キロです`);
+                            chunk.setType(SDL.rpc.enums.SpeechCapabilities.SC_TEXT);
+                            const speak = new SDL.rpc.messages.Speak().setTtsChunks([chunk]);
+                            this._sdlManager.sendRpc(speak).catch(error => error);
+                        }
+                    });
 
-                    const count = 3;
-                    for (let i = 0; i < count; i++) {
-                        const showCountdown = new SDL.rpc.messages.Show();
-                        showCountdown.setMainField1(`Exiting in ${(count - i).toString()}`)
-                            .setMainField2('')
-                            .setMainField3('');
-
-                        this._sdlManager.sendRpc(showCountdown); // don't wait for a response
-
-                        await this._sleep();
+                    // // 速度の変化を取得開始
+                    const subscribeRequest = new SDL.rpc.messages.SubscribeVehicleData()
+                        .setSpeed(true);
+                    const response = await this._sdlManager.sendRpc(subscribeRequest).catch(error => error);
+                    if (response.getSuccess()) {
+                        console.log('Successfully subscribed to vehicle data.');
+                    } else {
+                        console.log('Request to subscribe to vehicle data was rejected.');
                     }
 
-                    // tear down the app
-                    await this._sdlManager.sendRpc(new SDL.rpc.messages.UnregisterAppInterface());
+                    await this._sleep(2000);
+                    softButtonObjects[0].transitionToNextState();
+                    await this._sleep(2000);
+                    softButtonObjects[0].transitionToNextState();
+                    await this._sleep(2000);
 
-                    this._sdlManager.dispose();
+                    // const count = 3;
+                    // for (let i = 0; i < count; i++) {
+                    //     const showCountdown = new SDL.rpc.messages.Show();
+                    //     showCountdown.setMainField1(`Exiting in ${(count - i).toString()}`)
+                    //         .setMainField2('')
+                    //         .setMainField3('');
+
+                    //     this._sdlManager.sendRpc(showCountdown); // don't wait for a response
+
+                    //     await this._sleep();
+                    // }
+
+                    // // tear down the app
+                    // await this._sdlManager.sendRpc(new SDL.rpc.messages.UnregisterAppInterface());
+
+                    // this._sdlManager.dispose();
                 }
             }
 
